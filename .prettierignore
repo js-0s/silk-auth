@@ -1,0 +1,5 @@
+dev_modules
+node_modules
+src/components/ui
+docker-compose.yml
+pnpm-lock.yaml
