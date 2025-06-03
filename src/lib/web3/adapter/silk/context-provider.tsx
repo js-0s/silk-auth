@@ -1,8 +1,10 @@
+'use client';
 import {
   useState,
   useCallback,
   createContext,
   useContext,
+  useEffect,
   type ReactNode,
 } from 'react';
 
@@ -13,6 +15,8 @@ import {
   CreateConnectorFn,
   CreateConfigParameters,
 } from 'wagmi';
+import { initSilk } from '@silk-wallet/silk-wallet-sdk';
+import { options } from './options';
 const Web3Context = createContext({
   addConnector: (connector: CreateConnectorFn) => {
     console.warn('Web3ContextProvider not wrapping your component', connector);
@@ -20,32 +24,9 @@ const Web3Context = createContext({
 });
 
 export function Web3ContextProvider({ children }: { children: ReactNode }) {
-  const [connectors, setConnectors] = useState<readonly CreateConnectorFn[]>(
-    wagmiConfig.connectors ?? [],
-  );
-
-  const config = createConfig({
-    chains: wagmiConfig.chains,
-    connectors,
-    transports: wagmiConfig.transports,
-    ssr: wagmiConfig.ssr,
-  } as CreateConfigParameters);
-
-  const addConnector = useCallback(
-    (newConnector: CreateConnectorFn) => {
-      setConnectors(
-        (prevState) =>
-          [...prevState, newConnector] as readonly CreateConnectorFn[],
-      );
-    },
-    [setConnectors],
-  );
-  return (
-    <WagmiProvider config={config}>
-      <Web3Context.Provider value={{ addConnector }}>
-        {children}
-      </Web3Context.Provider>
-    </WagmiProvider>
-  );
+  useEffect(() => {
+    initSilk(options);
+  }, []);
+  return <Web3Context.Provider value={{}}>{children}</Web3Context.Provider>;
 }
 export const useWeb3Context = () => useContext(Web3Context);

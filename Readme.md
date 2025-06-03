@@ -45,10 +45,7 @@ of course the 'traditional' way is also possible, just
 
 - the configuration of the silk + siwe login was done with little
   documentation and on a possibly wrong assumption how to use it.
-- it was tested to not work using the 'wallet' connector but it worked
-  with email login... almost always
-- the configured default chain (celoAlfajores) was not supported by
-  silk at the point, only when switching to mainnet as default there
-  was success.
+- the current implementation still uses wagmi config but does not initialize
+  a wagmiProvider. therfore wagmi is not usable in the application. use ethers.
 - this is a stripped application, based on https://github.com/Akashic-fund/akashic/
   some styles, animations, words may be leftover

@@ -7,6 +7,7 @@ import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { SwitchWalletNetwork } from './switch-wallet-network';
 import { useAuth } from '@/contexts';
 import { chainConfig } from '@/lib/web3/config/chain';
+import { useChain } from '@/lib/web3/adapter';
 
 interface NetworkCheckProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ interface NetworkCheckProps {
 export function NetworkCheck({ children }: NetworkCheckProps) {
   const { isReady, authenticated } = useAuth();
   const { isCorrectNetwork, switchNetwork } = useNetworkCheck();
+  const { chainId } = useChain();
   const { toast } = useToast();
   const wasWrongNetwork = useRef(false);
 
@@ -23,6 +25,9 @@ export function NetworkCheck({ children }: NetworkCheckProps) {
       return;
     }
     if (!authenticated) {
+      return;
+    }
+    if (!chainId) {
       return;
     }
     if (!isCorrectNetwork) {
