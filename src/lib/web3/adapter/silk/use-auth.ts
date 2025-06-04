@@ -16,7 +16,14 @@ import { PROJECT_NAME } from '@/lib/constant';
 import { useToast } from '@/hooks/use-toast';
 import type { IWeb3UseAuthHook } from '@/lib/web3/types';
 import { useWeb3Context } from './context-provider';
+
 import { SilkEthereumProviderInterface } from '@silk-wallet/silk-wallet-sdk';
+
+declare global {
+  interface Window {
+    silk: SilkEthereumProviderInterface;
+  }
+}
 /**
  * Handles wagmi connect, signMessage, and logout using the Silk wallet.
  * @returns
@@ -26,6 +33,8 @@ export function useAuth(): IWeb3UseAuthHook {
     loading?: boolean;
     nonce?: string;
     error?: Error;
+    chainId?: number;
+    address?: string;
   }>({});
   const { toast } = useToast();
 
@@ -45,30 +54,28 @@ export function useAuth(): IWeb3UseAuthHook {
   useEffect(() => {
     fetchNonce();
   }, [fetchNonce]);
-  useEffect(() => {
-    setState((prevState) => ({ ...prevState, loading: true }));
-    const loadedSilkConnector = window.silk;
-    if (!loadedSilkConnector) {
-      setState((prevState) => ({ ...prevState, loading: false }));
-    } else {
-      setState((prevState) => ({ ...prevState, loading: false }));
-    }
-  }, []);
+
   const address = useMemo(() => {
     console.log('web3/adapter/silk/use-auth:rememo address');
-    return '';
-  }, []);
+    if (typeof state.address !== 'string' || !state.address.startsWith('0x')) {
+      return undefined;
+    }
+    return state.address;
+  }, [state.address]);
   const signIn = useCallback(
     async (address: string, chainId: number) => {
       try {
         console.log('useAuth.signIn', { address, chainId });
-        // if (!address || typeof chainId !== 'number') {
-        //   return;
-        // }
+        if (!address || typeof chainId !== 'number') {
+          console.warn('useAuth::signIn: missing address or chainId');
+          return;
+        }
 
         setState((prevState) => ({
           ...prevState,
           loading: true,
+          address: address,
+          chainId: chainId,
           error: undefined,
         }));
         // Create SIWE message with pre-fetched nonce and sign with wallet
@@ -130,31 +137,35 @@ export function useAuth(): IWeb3UseAuthHook {
 
   const logout = useCallback(async () => {
     await nextAuthSignOut();
-    const loadedSilkConnector = window.silk as SilkEthereumProviderInterface;
+    const loadedSilkConnector = window.silk;
     await loadedSilkConnector.logout();
     setState({});
   }, []);
-
-  const connect = useCallback(async () => {
+  const login = useCallback(async () => {
     setState((prevState) => ({
       ...prevState,
       loading: true,
       error: undefined,
     }));
     console.log('useAuth.connect');
-    const loadedSilkConnector = window.silk as SilkEthereumProviderInterface;
+    const loadedSilkConnector = window.silk;
     const defaultChain = chainConfig.defaultChain;
     try {
       console.log('useAuth.connect with', loadedSilkConnector);
       const loginResult = await loadedSilkConnector.login();
+      console.log('useAuth.connect loginResult', loginResult);
 
       // should be done with a event handler or similar
-      const accounts = await loadedSilkConnector.request({
+      const accounts = (await loadedSilkConnector.request({
         method: 'eth_requestAccounts',
+      })) as `0x${string}`[];
+      const chainIdHex = await loadedSilkConnector.request({
+        method: 'eth_chainId',
       });
 
-      console.log({ accounts, loginResult });
-      await signIn(accounts[0], 1);
+      console.log({ accounts, chainIdHex });
+      const address = accounts[0];
+      await signIn(address, Number(chainIdHex));
       setState((prevState) => ({ ...prevState, loading: false }));
     } catch (error) {
       console.error('Error connecting to Silk:', error);
@@ -188,15 +199,6 @@ export function useAuth(): IWeb3UseAuthHook {
     );
     return state.loading === false;
   }, [state.loading, state.error]);
-  const login = useCallback(async () => {
-    console.log('login::connect', { address });
-    await connect();
-  }, [connect]);
-  console.log('web3/adapter/silk/use-auth:render', {
-    authenticated,
-    ready,
-    address,
-  });
   return {
     login,
     logout,
