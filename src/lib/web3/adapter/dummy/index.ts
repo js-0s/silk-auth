@@ -1,7 +1,6 @@
 import {
   ConnectedWallet,
   IWeb3UseAuthHook,
-  IWeb3UseChainHook,
   EthereumProvider,
 } from '@/lib/web3/types';
 
@@ -43,18 +42,4 @@ export function useAuth(): IWeb3UseAuthHook {
 }
 export function useWallet(): ConnectedWallet | null {
   return staticWallet;
-}
-export function useChain(): IWeb3UseChainHook {
-  return {
-    chain: {
-      name: 'dummy',
-      blockExplorers: {
-        default: {
-          url: 'http://localhost:1000',
-        },
-      },
-    },
-    chainId: 1,
-    address: '0xdeb38',
-  };
 }
