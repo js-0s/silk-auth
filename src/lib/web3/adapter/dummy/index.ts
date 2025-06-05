@@ -1,8 +1,4 @@
-import {
-  ConnectedWallet,
-  IWeb3UseAuthHook,
-  EthereumProvider,
-} from '@/lib/web3/types';
+import { IWeb3UseAuthHook } from '@/lib/web3/types';
 
 /**
  * This is a very basic adapter
@@ -20,26 +16,7 @@ const staticAuth = {
   },
   logout: async () => {},
 };
-const staticWallet = {
-  getEthereumProvider: async (): Promise<EthereumProvider> => {
-    return {
-      request: async () => {},
-      on: (event: string, handler: (payload: unknown) => void) => {
-        console.log('staticWallet.on', event, handler);
-      },
-      removeListener: (event: string, handler: (payload: unknown) => void) => {
-        console.log('staticWallet.removeListener', event, handler);
-      },
-    };
-  },
-  isConnected: async () => {
-    return false;
-  },
-  address: '0xdeb38',
-};
+
 export function useAuth(): IWeb3UseAuthHook {
   return staticAuth;
-}
-export function useWallet(): ConnectedWallet | null {
-  return staticWallet;
 }

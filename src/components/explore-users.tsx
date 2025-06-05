@@ -1,25 +1,46 @@
 'use client';
 import { useAuth } from '@/contexts';
-import { useWeb3Context } from '@/lib/web3/adapter/silk/context-provider';
+import { useCurrentChain } from '@/lib/web3';
+
 import { useSession } from 'next-auth/react';
+import { useCallback } from 'react';
+import { TestWriteContract } from './test-write-contract';
+import { WagmiStatus } from './wagmi-status';
 
 export function ExploreUsers() {
   const session = useSession();
-  const { authenticated, isReady, address } = useAuth();
-  const { chain, chainId } = useWeb3Context();
+  const { authenticated, isReady, address, login } = useAuth();
+  const currentChain = useCurrentChain();
+
+  const connect = useCallback(() => {
+    login();
+  }, [login]);
+
   if (!isReady) {
-    return <p>Waiting for authentication to be ready</p>;
+    return (
+      <p>
+        Waiting for authentication to be ready. Displaying only public content.
+      </p>
+    );
   }
   if (!authenticated) {
-    return <p>user-list for public</p>;
+    return (
+      <div>
+        <p>public content, user cannot interact with web3</p>
+        <button onClick={connect}>Connect</button>
+      </div>
+    );
   }
   return (
     <div>
-      <p>user-list for authenticated</p>
+      <p>authenticated content, user can interact with web3</p>
       <p>session state: {session?.data?.user?.address ?? 'no session'}</p>
       <p>
-        providerState: {address}:{chainId}:{chain?.name ?? ''}
+        web3ContextState: {address}:{currentChain?.id ?? ''}:
+        {currentChain?.name ?? ''}
       </p>
+      <WagmiStatus />
+      <TestWriteContract />
     </div>
   );
 }

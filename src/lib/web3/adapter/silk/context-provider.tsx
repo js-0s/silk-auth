@@ -9,13 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { config as wagmiConfig } from '@/lib/web3/config/wagmi';
-import {
-  WagmiProvider,
-  createConfig,
-  CreateConnectorFn,
-  CreateConfigParameters,
-} from 'wagmi';
+import { WagmiProvider, createConfig } from 'wagmi';
 import { EthereumProvider, initSilk } from '@silk-wallet/silk-wallet-sdk';
 import { options } from './options';
 import { config } from '@/lib/web3/config/wagmi';
@@ -118,7 +112,7 @@ export function Web3ContextProvider({ children }: { children: ReactNode }) {
       clearTimeout(timerId);
       subscribed = false;
     };
-  }, [provider]);
+  }, [provider, checkWallet]);
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout> | undefined = undefined;
     function checkProvider() {
@@ -139,7 +133,7 @@ export function Web3ContextProvider({ children }: { children: ReactNode }) {
       return;
     }
     const handleAccountsChanged = (accounts: `0x${string}`) => {
-      console.log('silk/context-provider/event: Accounts Changed:', chainId);
+      console.log('silk/context-provider/event: Accounts Changed:', accounts);
       setAddress(accounts[0] || undefined);
     };
 
@@ -177,6 +171,10 @@ export function Web3ContextProvider({ children }: { children: ReactNode }) {
     //works the same as in global scope:
     //setProvider(initSilk(options) as EthereumProvider);
   }, []);
-  return <Web3Context.Provider value={value}>{children}</Web3Context.Provider>;
+  return (
+    <WagmiProvider config={createConfig(config)}>
+      <Web3Context.Provider value={value}>{children}</Web3Context.Provider>
+    </WagmiProvider>
+  );
 }
 export const useWeb3Context = () => useContext(Web3Context);

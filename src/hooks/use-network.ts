@@ -3,9 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { chainConfig } from '@/lib/web3/config/chain';
-import { EthereumProvider, ProviderRpcError } from '@/lib/web3/types';
+import { ProviderRpcError } from '@/lib/web3/types';
 import { useWeb3Context, useAuth } from '@/lib/web3';
-import { GSP_NO_RETURNED_VALUE } from 'next/dist/lib/constants';
 
 export function useNetworkCheck() {
   const { address, chainId, provider } = useWeb3Context();
@@ -125,7 +124,7 @@ export function useNetworkCheck() {
 
     initializeNetwork();
     return () => cleanup?.();
-  }, [provider, checkNetwork]);
+  }, [provider, address, checkNetwork]);
 
   return { isCorrectNetwork, switchNetwork };
 }

@@ -65,7 +65,7 @@ export function NetworkCheck({ children }: NetworkCheckProps) {
         duration: 3000,
       });
     }
-  }, [authenticated, isReady, isCorrectNetwork, switchNetwork, toast]);
+  }, [authenticated, isReady, chainId, isCorrectNetwork, switchNetwork, toast]);
 
   return children;
 }

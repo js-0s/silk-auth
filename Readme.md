@@ -35,9 +35,11 @@ host > docker compose --profile develop up pgadmin
 
 expose the app-modules to node_modules
 (useful for code-editors that willingly execute scripts in there)
+
 ```
 root@host > mount -o bind dev_modules/app/node_modules /node_modules
 ```
+
 of course the 'traditional' way is also possible, just
 `pnpm install && pnpm dev` on the host
 

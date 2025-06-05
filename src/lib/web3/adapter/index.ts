@@ -9,7 +9,7 @@
  * or to completely swap out to a dummy interface for enhanced
  * frontend development
  */
-export { Web3ContextProvider, useWeb3Context, useAuth } from './silk';
+export { Web3ContextProvider, useWeb3Context, useAuth } from './silk-wagmi';
 
 // never commit this line uncommented, this is for local development only
 // export { Web3ContextProvider, useAuth, useWallet } from './dummy';
