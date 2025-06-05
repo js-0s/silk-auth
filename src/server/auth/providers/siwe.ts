@@ -45,7 +45,9 @@ export function SiweProvider() {
         // Get CSRF token from cookie using the new async approach
         const headerCookies = await cookies();
         console.log('cookies', headerCookies.toString());
-        const csrfToken = headerCookies.get('authjs.csrf-token');
+        const csrfTokenLocal = headerCookies.get('authjs.csrf-token');
+        const csrfTokenHost = headerCookies.get('__Host-authjs.csrf-token');
+        const csrfToken = csrfTokenHost ?? csrfTokenLocal;
         console.log('csrfToken-raw', csrfToken);
         const nonce = csrfToken?.value.split('|')[0];
         const { message, signature } = credentials;
