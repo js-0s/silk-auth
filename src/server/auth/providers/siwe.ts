@@ -45,7 +45,7 @@ export function SiweProvider() {
         // Get CSRF token from cookie using the new async approach
         const headerCookies = await cookies();
         const csrfToken = headerCookies.get('authjs.csrf-token');
-        console.log('csrfToken-raw',csrfToken)
+        console.log('csrfToken-raw', csrfToken);
         const nonce = csrfToken?.value.split('|')[0];
         const { message, signature } = credentials;
         const siwe = new SiweMessage(JSON.parse(message));
@@ -53,7 +53,7 @@ export function SiweProvider() {
           throw new Error('siwe.verify succeded but for a different domain');
         }
         if (siwe.nonce !== nonce) {
-          console.log('siwe-nonce', {siwe.nonce, nonce});
+          console.log('siwe-nonce', { siwenonce: siwe.nonce, nonce });
           throw new Error('siwe.verify succeded but for a different nonce');
         }
         const verificationParams = {
