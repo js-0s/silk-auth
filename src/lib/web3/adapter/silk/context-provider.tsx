@@ -15,6 +15,7 @@ import { options } from './options';
 import { config } from '@/lib/web3/config/wagmi';
 
 import { SilkEthereumProviderInterface } from '@silk-wallet/silk-wallet-sdk';
+import { debugWeb3ContextProvider as debug } from '@/lib/debug';
 
 declare global {
   interface Window {
@@ -51,7 +52,7 @@ export function Web3ContextProvider({ children }: { children: ReactNode }) {
   const [provider, setProvider] = useState<EthereumProvider | undefined>();
 
   const checkWallet = useCallback(async () => {
-    console.log('silk/context-provider checkWallet');
+    debug && console.log('silk/context-provider checkWallet');
     if (!provider) {
       console.warn('checkWallet called without a provider');
       return {};
@@ -64,12 +65,13 @@ export function Web3ContextProvider({ children }: { children: ReactNode }) {
     });
     const address = accounts[0];
     const chainId = Number(chainIdHex);
-    console.log(
-      'silk/context-provider::checkWallet',
-      address,
-      chainId,
-      accounts,
-    );
+    debug &&
+      console.log(
+        'silk/context-provider::checkWallet',
+        address,
+        chainId,
+        accounts,
+      );
     return { address, chainId };
   }, [provider]);
   const chain = useMemo(() => {
@@ -133,22 +135,37 @@ export function Web3ContextProvider({ children }: { children: ReactNode }) {
       return;
     }
     const handleAccountsChanged = (accounts: `0x${string}`) => {
-      console.log('silk/context-provider/event: Accounts Changed:', accounts);
+      debug &&
+        console.log(
+          'web3/adapter/silk/context-provider:event: Accounts Changed:',
+          accounts,
+        );
       setAddress(accounts[0] || undefined);
     };
 
     const handleChainChanged = (chainIdHex: string) => {
       const chainId = Number(chainIdHex);
-      console.log('silk/context-provider/event: Chain Changed:', chainId);
+      debug &&
+        console.log(
+          'web3/adapter/silk/context-provider:event: Chain Changed:',
+          chainId,
+        );
       setChainId(chainId);
     };
     const handleDisconnect = (error: unknown) => {
-      console.log('silk/context-provider/event: Wallet disconnected:', error);
+      debug &&
+        console.log(
+          'web3/adapter/silk/context-provider: event: Wallet disconnected:',
+          error,
+        );
       setAddress(undefined);
       setChainId(undefined);
     };
     const handleConnect = () => {
-      console.log('silk/context-provider/event: Connected to Human Wallet');
+      debug &&
+        console.log(
+          'web3/adapter/silk/context-provider:event: Connected to Human Wallet',
+        );
     };
 
     // Add listeners
@@ -168,8 +185,10 @@ export function Web3ContextProvider({ children }: { children: ReactNode }) {
     if (window.silk) {
       return;
     }
-    //works the same as in global scope:
-    //setProvider(initSilk(options) as EthereumProvider);
+    // works the same as in global scope,
+    // but global-scope has the advantage that it is loaded at page-load,
+    // not with container
+    // setProvider(initSilk(options) as EthereumProvider);
   }, []);
   return (
     <WagmiProvider config={createConfig(config)}>

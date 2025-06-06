@@ -25,6 +25,7 @@ import type { IWeb3UseAuthHook } from '@/lib/web3/types';
 import { useWeb3Context } from './context-provider';
 import { ConnectorAlreadyConnectedError } from 'wagmi';
 import { ethers } from 'ethers';
+import { debugWeb3UseAuth as debug } from '@/lib/debug';
 
 async function fetchNonce() {
   try {
@@ -66,6 +67,7 @@ export function useAuth(): IWeb3UseAuthHook {
     return address.toLowerCase();
   }, [address]);
   const logout = useCallback(async () => {
+    debug && console.log('web3/adapter/silk-wagmi/use-auth:logout');
     await nextAuthSignOut();
     await wagmiDisconnect();
     if (provider) {
@@ -78,9 +80,15 @@ export function useAuth(): IWeb3UseAuthHook {
     try {
       // we cannot rely on state here as login() has altered window values
       const { address, chainId } = await checkWallet();
-      console.log('useAuth.signIn', { address, chainId });
+      debug &&
+        console.log('web3/adapter/silk-wagmi/use-auth:signInToBackend', {
+          address,
+          chainId,
+        });
       if (!address || typeof chainId !== 'number') {
-        return;
+        throw new Error(
+          'web3/adapter/silk-wagmi/use-auth:signInToBackend: missing address or chainId',
+        );
       }
 
       setState((prevState) => ({
@@ -90,7 +98,9 @@ export function useAuth(): IWeb3UseAuthHook {
       }));
       const nonce = await fetchNonce();
       if (!nonce) {
-        throw new Error('Failed to fetch nonce for signature');
+        throw new Error(
+          'web3/adapter/silk-wagmi/use-auth:signInToBackend: Failed to fetch nonce for signature',
+        );
       }
       // Create SIWE message with pre-fetched nonce and sign with wallet
       const message = new SiweMessage({
@@ -105,7 +115,9 @@ export function useAuth(): IWeb3UseAuthHook {
 
       const preparedMessage = message.prepareMessage();
       if (typeof signMessageAsync !== 'function') {
-        throw new Error('Wagmi signMessageAsync not found');
+        throw new Error(
+          'web3/adapter/silk-wagmi/use-auth:signInToBackend: Wagmi signMessageAsync not found',
+        );
       }
       // signMessageAsync cannot work because the wagmi connector is not set yet
       // that signature would only work if we detach the nextauth login from the wagmi connect
@@ -114,8 +126,14 @@ export function useAuth(): IWeb3UseAuthHook {
       //   message: preparedMessage,
       // });
       if (!window.silk) {
-        throw new Error('Silk Wallet is not loaded');
+        throw new Error(
+          'web3/adapter/silk-wagmi/use-auth:signInToBackend: Silk Wallet is not loaded',
+        );
       }
+      debug &&
+        console.log(
+          'web3/adapter/silk-wagmi/use-auth:signInToBackend: request signature',
+        );
       const signature = await window.silk.request({
         method: 'personal_sign',
         params: [
@@ -124,6 +142,10 @@ export function useAuth(): IWeb3UseAuthHook {
         ],
       });
 
+      debug &&
+        console.log(
+          'web3/adapter/silk-wagmi/use-auth:signInToBackend: login to next-auth',
+        );
       const authResult = await nextAuthSignIn('siwe', {
         redirect: false,
         message: JSON.stringify(message),
@@ -132,16 +154,22 @@ export function useAuth(): IWeb3UseAuthHook {
       });
       if (authResult?.ok && !authResult.error) {
         const session = await getSession();
-        console.info('User signed in:', session?.user?.name);
+        console.info(
+          'web3/adapter/silk-wagmi/use-auth:signInToBackend: user signed in',
+          session?.user?.name,
+          session?.user?.address,
+        );
       } else if (authResult?.error) {
         const errorMessage =
-          'An error occurred while signin in.' +
+          'web3/adapter/silk-wagmi/use-auth:signInToBackend:' +
+          ' An error occurred while signin in.' +
           ` Code: ${authResult.status} - ${authResult.error}`;
         console.error(errorMessage);
         setState((prevState) => ({
           ...prevState,
           error: new Error(
-            authResult.error || 'Unable to authenticate the message',
+            authResult.error ||
+              'web3/adapter/silk-wagmi/use-auth:signInToBackend: Unable to authenticate the message',
           ),
         }));
       }
@@ -163,7 +191,7 @@ export function useAuth(): IWeb3UseAuthHook {
       error: undefined,
     }));
     loginRef.current = true;
-    console.log('useAuth.connect');
+    debug && console.log('web3/adapter/silk-wagmi/use-auth:login');
     const loadedSilkConnector = connectors.find(
       (connector) => connector.id === 'silk',
     );
@@ -171,24 +199,38 @@ export function useAuth(): IWeb3UseAuthHook {
     try {
       if (!loadedSilkConnector) {
         throw new Error(
-          'Configuration issue: silk connector not in wagmi config',
+          'web3/adapter/silk-wagmi/use-auth:login: Configuration issue: silk connector not in wagmi config',
         );
       }
+      debug &&
+        console.log(
+          'web3/adapter/silk-wagmi/use-auth:login: request wagmi(silk) to login -> connector::connect',
+        );
       //await window.silk.login();
       await wagmiConnect({
         chainId: defaultChain.id,
         connector: loadedSilkConnector,
       });
+      debug &&
+        console.log(
+          'web3/adapter/silk-wagmi/use-auth:login: to wallet complete continue with login to next-auth',
+        );
 
       await signInToBackend();
       setState((prevState) => ({ ...prevState, loading: false }));
     } catch (error) {
-      console.error('Error connecting to Silk:', error);
       if (error instanceof ConnectorAlreadyConnectedError) {
-        console.log('already connected error - retrying');
+        debug &&
+          console.log(
+            'web3/adapter/silk-wagmi/use-auth:login: already connected, retrying',
+          );
         await wagmiDisconnect();
         return await login();
       }
+      console.error(
+        'web3/adapter/silk-wagmi/use-auth:login: error connecting to silk',
+        error,
+      );
       if (error instanceof UserRejectedRequestError)
         toast({
           variant: 'destructive',
@@ -207,34 +249,45 @@ export function useAuth(): IWeb3UseAuthHook {
   }, [toast, connectors, wagmiConnect, wagmiDisconnect, signInToBackend]);
 
   const ready = useMemo(() => {
-    console.log(
-      'web3/adapter/silk/use-auth:rememo ready',
-      address,
-      typeof provider,
-      state.loading,
-      typeof state.loading,
-    );
-    if (!provider) {
+    debug &&
       console.log(
-        'web3/adapter/silk/use-auth:rememo ready: silk not yet initialized',
+        'web3/adapter/silk-wagmi/use-auth:rememo ready',
+        address,
+        typeof provider,
+        state.loading,
+        typeof state.loading,
       );
+    if (!provider) {
+      debug &&
+        console.log(
+          'web3/adapter/silk-wagmi/use-auth:rememo ready: silk not yet initialized',
+        );
+      return false;
+    }
+    if (loginRef.current || reconnectingRef.current) {
+      debug &&
+        console.log(
+          'web3/adapter/silk-wagmi/use-auth:rememo ready: in the middle of reconnect or login',
+        );
       return false;
     }
     if (typeof address === 'string' && address.startsWith('0x')) {
-      console.log(
-        'web3/adapter/silk/use-auth:rememo ready: silk provided a address',
-      );
+      debug &&
+        console.log(
+          'web3/adapter/silk-wagmi/use-auth:rememo ready: silk provided a address',
+        );
       // silk has provided a address
       // via
       // - accountsChanged event
       // - checkWallet = eth_requestAccounts
       return true;
     }
-    console.log(
-      'web3/adapter/silk/use-auth:rememo ready: check loading state',
-      state.loading === false,
-      typeof state.loading === 'undefined',
-    );
+    debug &&
+      console.log(
+        'web3/adapter/silk-wagmi/use-auth:rememo ready: check loading state',
+        state.loading === false,
+        typeof state.loading === 'undefined',
+      );
     return state.loading === false || typeof state.loading === 'undefined';
   }, [address, state.loading, provider]);
 
@@ -244,11 +297,12 @@ export function useAuth(): IWeb3UseAuthHook {
       !normalizedAddress.startsWith('0x')
     ) {
       // no session ignore
+      return;
     }
     if (reconnectingRef.current || loginRef.current) {
       return;
     }
-    console.log('web3/adapter/silk/use-auth:reconnect effect');
+    debug && console.log('web3/adapter/silk-wagmi/use-auth:reconnect effect');
     reconnectingRef.current = true;
     wagmiReconnect(undefined, {
       onSettled: () => {
@@ -256,10 +310,11 @@ export function useAuth(): IWeb3UseAuthHook {
       },
     });
   }, [normalizedAddress, wagmiReconnect]);
-  console.log('web3/adapter/silk/use-auth:render', {
-    ready,
-    address,
-  });
+  debug &&
+    console.log('web3/adapter/silk-wagmi/use-auth:render', {
+      ready,
+      address,
+    });
   return {
     login,
     logout,

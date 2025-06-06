@@ -2,6 +2,8 @@ import { ChainNotConfiguredError, createConnector } from '@wagmi/core';
 import { SwitchChainError, UserRejectedRequestError, getAddress } from 'viem';
 export { options as connectorOptions } from './options';
 
+import { debugWeb3AdapterSilkConnector as debug } from '@/lib/debug';
+
 import {
   type CredentialType,
   SILK_METHOD,
@@ -32,9 +34,12 @@ interface SilkEthereumExtendedProviderInterface
  * @returns
  */
 export function connector(options?: InitSilkOptions) {
-  console.log('web3/adapter/silk/connector', { options });
+  debug && console.log('web3/adapter/silk-wagmi/connector', { options });
   return createConnector<SilkEthereumProviderInterface>((config) => {
-    console.log('web3/adapter/silk/connector::createConnector', { config });
+    debug &&
+      console.log('web3/adapter/silk-wagmi/connector::createConnector', {
+        config,
+      });
     return {
       id: 'silk',
       name: 'Silk Connector',
@@ -43,7 +48,10 @@ export function connector(options?: InitSilkOptions) {
       supportsSimulation: false,
 
       async connect({ chainId, isReconnecting } = {}) {
-        console.log('web3/adapter/silk/connector::connect', { chainId });
+        debug &&
+          console.log('web3/adapter/silk-wagmi/connector::connect', {
+            chainId,
+          });
         try {
           config.emitter.emit('message', {
             type: 'connecting',
@@ -59,7 +67,7 @@ export function connector(options?: InitSilkOptions) {
             try {
               await provider.login();
             } catch (error) {
-              console.warn('Unable to login', error);
+              debug && console.warn('Unable to login', error);
               throw new UserRejectedRequestError(
                 'User rejected login or login failed' as unknown as Error,
               );
@@ -68,9 +76,10 @@ export function connector(options?: InitSilkOptions) {
 
           let currentChainId = await this.getChainId();
           if (chainId && currentChainId !== chainId) {
-            console.info(
-              `Switching chain from ${currentChainId} to ${chainId}`,
-            );
+            debug &&
+              console.info(
+                `Switching chain from ${currentChainId} to ${chainId}`,
+              );
             const chain = await this.switchChain!({ chainId }).catch(
               (error) => {
                 if (error.code === UserRejectedRequestError.code) throw error;
@@ -84,14 +93,14 @@ export function connector(options?: InitSilkOptions) {
 
           return { accounts, chainId: currentChainId };
         } catch (error) {
-          console.error('Error while connecting', error);
+          debug && console.error('Error while connecting', error);
           this.onDisconnect();
           throw error;
         }
       },
 
       async getAccounts() {
-        console.log('web3/adapter/silk/connector::getAccounts');
+        debug && console.log('web3/adapter/silk-wagmi/connector::getAccounts');
         const provider = await this.getProvider();
         const accounts = await provider.request({
           method: SILK_METHOD.eth_accounts,
@@ -109,19 +118,21 @@ export function connector(options?: InitSilkOptions) {
       },
 
       async getChainId() {
-        console.log('web3/adapter/silk/connector::getChainId');
+        debug && console.log('web3/adapter/silk-wagmi/connector::getChainId');
         const provider = await this.getProvider();
         const chainId = await provider.request({
           method: SILK_METHOD.eth_chainId,
         });
-        console.log('web3/adapter/silk/connector::getChainId', chainId);
+        debug &&
+          console.log('web3/adapter/silk-wagmi/connector::getChainId', chainId);
         return Number(chainId);
       },
 
       async getProvider(): Promise<SilkEthereumProviderInterface> {
-        console.log('web3/adapter/silk/connector::getProvider');
+        debug && console.log('web3/adapter/silk-wagmi/connector::getProvider');
         if (!window.silk) {
-          console.log('Initializing Silk Provider with options:', options);
+          debug &&
+            console.log('Initializing Silk Provider with options:', options);
           window.silk = initSilk(options ?? {});
         }
 
@@ -129,7 +140,7 @@ export function connector(options?: InitSilkOptions) {
       },
 
       async isAuthorized() {
-        console.log('web3/adapter/silk/connector::isAuthorized');
+        debug && console.log('web3/adapter/silk-wagmi/connector::isAuthorized');
         try {
           const accounts = await this.getAccounts();
           return !!accounts.length;
@@ -139,7 +150,10 @@ export function connector(options?: InitSilkOptions) {
       },
 
       async switchChain({ chainId }) {
-        console.log('web3/adapter/silk/connector::switchChain', { chainId });
+        debug &&
+          console.log('web3/adapter/silk-wagmi/connector::switchChain', {
+            chainId,
+          });
         try {
           const chain = config.chains.find((chain) => chain.id === chainId);
           if (!chain) {
@@ -147,9 +161,10 @@ export function connector(options?: InitSilkOptions) {
           }
 
           const provider = await this.getProvider();
-          console.log('web3/adapter/silk/connector::switchChain', {
-            chainIdHex: `0x${chain.id.toString(16)}`,
-          });
+          debug &&
+            console.log('web3/adapter/silk-wagmi/connector::switchChain', {
+              chainIdHex: `0x${chain.id.toString(16)}`,
+            });
           await provider.request({
             method: SILK_METHOD.wallet_switchEthereumChain,
             params: [{ chainId: `0x${chain.id.toString(16)}` }],
@@ -158,17 +173,18 @@ export function connector(options?: InitSilkOptions) {
 
           return chain;
         } catch (error: unknown) {
-          console.error(
-            'Error: Unable to switch chain',
-            error,
-            await this.getProvider(),
-          );
+          debug &&
+            console.error(
+              'Error: Unable to switch chain',
+              error,
+              await this.getProvider(),
+            );
           throw new SwitchChainError(error as Error);
         }
       },
 
       async disconnect(): Promise<void> {
-        console.log('web3/adapter/silk/connector::disconnect');
+        debug && console.log('web3/adapter/silk-wagmi/connector::disconnect');
         const provider =
           (await this.getProvider()) as SilkEthereumExtendedProviderInterface;
         if ('uiMessageManager' in provider) {
@@ -183,21 +199,22 @@ export function connector(options?: InitSilkOptions) {
       },
 
       async requestEmail(): Promise<unknown> {
-        console.log('web3/adapter/silk/connector::requestEmail');
+        debug && console.log('web3/adapter/silk-wagmi/connector::requestEmail');
         const provider = await this.getProvider();
         return provider.requestEmail();
       },
 
       async requestSBT(type: CredentialType): Promise<unknown> {
-        console.log('web3/adapter/silk/connector::requestSBT');
+        debug && console.log('web3/adapter/silk-wagmi/connector::requestSBT');
         const provider = await this.getProvider();
         return provider.requestSBT(type);
       },
 
       onAccountsChanged(accounts) {
-        console.log('web3/adapter/silk/connector::onAccountsChanged', {
-          accounts,
-        });
+        debug &&
+          console.log('web3/adapter/silk-wagmi/connector::onAccountsChanged', {
+            accounts,
+          });
 
         if (accounts.length === 0) {
           config.emitter.emit('disconnect');
@@ -209,13 +226,16 @@ export function connector(options?: InitSilkOptions) {
       },
 
       onChainChanged(chain) {
-        console.log('web3/adapter/silk/connector::onChainChanged', { chain });
+        debug &&
+          console.log('web3/adapter/silk-wagmi/connector::onChainChanged', {
+            chain,
+          });
         const chainId = Number(chain);
         config.emitter.emit('change', { chainId });
       },
 
       onDisconnect(): void {
-        console.log('web3/adapter/silk/connector::onDisconnect');
+        debug && console.log('web3/adapter/silk-wagmi/connector::onDisconnect');
 
         config.emitter.emit('disconnect');
       },
