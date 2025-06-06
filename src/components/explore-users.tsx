@@ -18,24 +18,35 @@ export function ExploreUsers() {
 
   if (!isReady) {
     return (
-      <p>
+      <p className="text-center italic text-gray-600">
         Waiting for authentication to be ready. Displaying only public content.
       </p>
     );
   }
   if (!authenticated) {
     return (
-      <div>
-        <p>public content, user cannot interact with web3</p>
-        <button onClick={connect}>Connect</button>
+      <div className="space-y-4 rounded border p-4 shadow-md">
+        <p className="text-gray-700">
+          public content, user cannot interact with web3
+        </p>
+        <button
+          className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+          onClick={connect}
+        >
+          Connect
+        </button>
       </div>
     );
   }
   return (
-    <div>
-      <p>authenticated content, user can interact with web3</p>
-      <p>session state: {session?.data?.user?.address ?? 'no session'}</p>
-      <p>
+    <div className="space-y-4 rounded border p-4 shadow-md">
+      <p className="text-gray-700">
+        authenticated content, user can interact with web3
+      </p>
+      <p className="text-sm text-gray-600">
+        session state: {session?.data?.user?.address ?? 'no session'}
+      </p>
+      <p className="text-sm text-gray-600">
         web3ContextState: {address}:{currentChain?.id ?? ''}:
         {currentChain?.name ?? ''}
       </p>

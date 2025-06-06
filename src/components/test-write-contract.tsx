@@ -1,7 +1,9 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { Log, parseEther, keccak256, stringToHex } from 'viem';
 import { useAuth } from '@/lib/web3';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const CAMPAIGN_INFO_FACTORY = '0xe50856faec2b797eb15b78acfb7c1ebf45374903';
 const PUBLIC_PLATFORM_HASH =
@@ -180,13 +182,28 @@ const CampaignInfoFactoryABI = [
   },
 ];
 export function TestWriteContract() {
-  const { writeContract, data: hash } = useWriteContract();
+  const [logs, setLogs] = useState<string[]>([]);
+
+  const {
+    writeContract,
+    data: hash,
+    isPending: isWriting,
+  } = useWriteContract();
   const { address } = useAuth();
-  const { isSuccess, data: receipt } = useWaitForTransactionReceipt({
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    data: receipt,
+  } = useWaitForTransactionReceipt({
     hash,
   });
+
+  const log = useCallback((message: string) => {
+    setLogs((prevLogs) => [...prevLogs, message]);
+  }, []);
+
   const testWriteContract = useCallback(async () => {
-    console.log('testWriteContract');
+    log('Attempting to write contract...');
     const campaignData = {
       launchTime: BigInt(new Date('2025-07-01').getTime() / 1000),
       deadline: BigInt(new Date('2025-08-01').getTime() / 1000),
@@ -208,20 +225,82 @@ export function TestWriteContract() {
         campaignData,
       ],
     });
-  }, [writeContract, address]);
+  }, [writeContract, address, log]); // Include log in dependencies
+
   useEffect(() => {
-    if (hash && isSuccess && receipt) {
-      const campaignAddress = receipt.logs[0].address;
-      const status = receipt.status;
-      const event = receipt.logs.find(
-        (log: Log) => log.transactionHash === hash,
-      );
-      console.log({ hash, status, campaignAddress, event });
+    if (hash) {
+      log(`Transaction sent, hash: ${hash}`);
     }
-  }, [hash, isSuccess, receipt]);
+  }, [hash, log]);
+
+  useEffect(() => {
+    if (isConfirming) {
+      log(`Waiting for transaction receipt for hash: ${hash}`);
+    }
+  }, [isConfirming, hash, log]);
+
+  useEffect(() => {
+    if (isSuccess && receipt) {
+      const campaignAddress = receipt.logs[0]?.address; // Use optional chaining
+      const status = receipt.status;
+      // Find the relevant event log if possible
+      const campaignCreatedEvent = receipt.logs.find(
+        (logEntry: Log) =>
+          (logEntry.topics?.[0] as string) ===
+          keccak256(
+            stringToHex('CampaignInfoFactoryCampaignCreated(bytes32,address)'),
+          ),
+      );
+
+      log('Transaction successful!');
+      log(`Status: ${status}`);
+      if (campaignAddress) {
+        log(`Campaign Address from first log: ${campaignAddress}`);
+      }
+      if (campaignCreatedEvent) {
+        log(`CampaignCreated event found in logs.`);
+        // You might parse event data here if needed
+      } else {
+        log(`CampaignCreated event not found in logs.`);
+        log(`All logs: ${JSON.stringify(receipt.logs, null, 2)}`);
+      }
+    }
+  }, [isSuccess, receipt, log, hash]);
+
+  const isLoading = isWriting || isConfirming;
+
   return (
-    <div>
-      <button onClick={testWriteContract}>Test Write Contract</button>
+    <div className="space-y-4 rounded border bg-white p-4 shadow-md">
+      <h3 className="text-lg font-semibold text-gray-800">
+        Test Write Contract
+      </h3>
+      <Button
+        onClick={testWriteContract}
+        disabled={isLoading}
+        className={cn(
+          'w-full',
+          isLoading ? 'cursor-not-allowed opacity-50' : 'hover:bg-blue-600',
+        )}
+      >
+        {isWriting
+          ? 'Sending...'
+          : isConfirming
+            ? 'Confirming...'
+            : 'Create Test Campaign'}
+      </Button>
+
+      {logs.length > 0 && (
+        <div
+          className={cn(
+            'mt-4 max-h-60 overflow-y-auto rounded border bg-gray-100 p-4 text-sm',
+          )}
+        >
+          <h4 className="mb-2 font-medium text-gray-700">Execution Log:</h4>
+          <pre className="whitespace-pre-wrap break-all text-gray-600">
+            {logs.join('\\n')}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
