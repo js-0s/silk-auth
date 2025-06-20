@@ -1,4 +1,10 @@
 'use client';
+/**
+ * silk without wagmi
+ *
+ * this context initializes silk without wagmi.
+ * use it when you want to interact with window.silk directly
+ */
 import {
   useMemo,
   useState,
@@ -10,11 +16,13 @@ import {
 } from 'react';
 
 import { WagmiProvider, createConfig } from 'wagmi';
-import { EthereumProvider, initSilk } from '@silk-wallet/silk-wallet-sdk';
+import {
+  SilkEthereumProviderInterface,
+  initSilk,
+} from '@silk-wallet/silk-wallet-sdk';
 import { options } from './options';
 import { config } from '@/lib/web3/config/wagmi';
-
-import { SilkEthereumProviderInterface } from '@silk-wallet/silk-wallet-sdk';
+import { useSession } from 'next-auth/react';
 import { debugWeb3ContextProvider as debug } from '@/lib/debug';
 
 declare global {
@@ -31,49 +39,32 @@ interface IWeb3Context {
   chainId?: number;
   chain?: IWeb3ContextChain;
   address?: string;
-  provider?: EthereumProvider;
-  checkWallet: () => Promise<{ address?: `0x${string}`; chainId?: number }>;
+  requestWallet: () => Promise<{ address?: `0x${string}`; chainId?: number }>;
 }
 const Web3Context = createContext({
   chainId: undefined,
   chain: undefined,
   address: undefined,
-  provider: undefined,
-  checkWallet: async () => ({ address: undefined, chainId: undefined }),
+  requestWallet: async () => ({ address: undefined, chainId: undefined }),
 } as IWeb3Context);
 
+/**
+ * Initialize window.silk at a global scope
+ * Find the commented-out 'useEffect' below if you need more fine-grained control
+ * when silk is available
+ */
 if (typeof window !== 'undefined' && typeof window.silk === 'undefined') {
   initSilk(options);
+}
+export function getProvider() {
+  return window.silk;
 }
 
 export function Web3ContextProvider({ children }: { children: ReactNode }) {
   const [chainId, setChainId] = useState<number | undefined>();
   const [address, setAddress] = useState<string | undefined>();
-  const [provider, setProvider] = useState<EthereumProvider | undefined>();
+  const session = useSession();
 
-  const checkWallet = useCallback(async () => {
-    debug && console.log('silk/context-provider checkWallet');
-    if (!provider) {
-      console.warn('checkWallet called without a provider');
-      return {};
-    }
-    const accounts = (await provider.request({
-      method: 'eth_requestAccounts',
-    })) as `0x${string}`[];
-    const chainIdHex = await provider.request({
-      method: 'eth_chainId',
-    });
-    const address = accounts[0];
-    const chainId = Number(chainIdHex);
-    debug &&
-      console.log(
-        'silk/context-provider::checkWallet',
-        address,
-        chainId,
-        accounts,
-      );
-    return { address, chainId };
-  }, [provider]);
   const chain = useMemo(() => {
     if (!chainId) {
       return undefined;
@@ -85,19 +76,70 @@ export function Web3ContextProvider({ children }: { children: ReactNode }) {
     }
     return undefined;
   }, [chainId]);
+
+  const requestWallet = useCallback(async (): Promise<{
+    address?: `0x${string}`;
+    chainId?: number;
+  }> => {
+    const provider = getProvider();
+    if (!provider) {
+      console.warn(
+        'web3/adapter/silk/context-provider: requestWallet called without a provider',
+      );
+      return {};
+    }
+    debug &&
+      console.log(
+        'web3/adapter/silk/context-provider: requestWallet: requesting wallet details',
+      );
+    const accounts = (await provider.request({
+      method: 'eth_requestAccounts',
+    })) as `0x${string}`[];
+    const chainIdHex = await provider.request({
+      method: 'eth_chainId',
+    });
+    const address = accounts[0];
+    const chainId = Number(chainIdHex);
+    debug &&
+      console.log(
+        'web3/adapter/silk/context-provider: requestWallet',
+        address,
+        chainId,
+        accounts,
+      );
+    return { address, chainId };
+  }, []);
+
+  const checkWallet = useCallback(async (): Promise<{
+    address?: `0x${string}`;
+    chainId?: number;
+  }> => {
+    /**
+     * check wallet shall only requestWallet when there is a active
+     * next-auth session. otherwise we'll get the signin-dialog over & over
+     * on navigation
+     */
+    if (session?.status !== 'authenticated') {
+      console.log(
+        'web3/adapter/silk/context-provider: checkWallet called without a session',
+      );
+      return {};
+    }
+    return requestWallet();
+  }, [requestWallet, session]);
   const value = useMemo(() => {
     return {
       address,
       chainId,
       chain,
-      checkWallet,
-      provider,
+      requestWallet,
     };
-  }, [address, chainId, chain, checkWallet, provider]);
+  }, [address, chainId, chain, requestWallet]);
   useEffect(() => {
     let subscribed = true;
     let timerId: ReturnType<typeof setTimeout> | undefined = undefined;
     async function checkWalletConnection() {
+      const provider = getProvider();
       if (!provider) {
         timerId = setTimeout(() => checkWalletConnection(), 100);
         return;
@@ -114,23 +156,10 @@ export function Web3ContextProvider({ children }: { children: ReactNode }) {
       clearTimeout(timerId);
       subscribed = false;
     };
-  }, [provider, checkWallet]);
-  useEffect(() => {
-    let timerId: ReturnType<typeof setTimeout> | undefined = undefined;
-    function checkProvider() {
-      if (provider !== window.silk) {
-        setProvider(window.silk as EthereumProvider);
-        console.warn('window.silk changed');
-      }
-      timerId = setTimeout(() => checkProvider(), 100);
-    }
-    checkProvider();
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [provider]);
+  }, [checkWallet]);
 
   useEffect(() => {
+    const provider = getProvider();
     if (!provider || typeof provider.on !== 'function') {
       return;
     }
@@ -180,16 +209,22 @@ export function Web3ContextProvider({ children }: { children: ReactNode }) {
       provider.removeListener('disconnect', handleDisconnect);
       provider.removeListener('connect', handleConnect);
     };
-  }, [provider]);
-  useEffect(() => {
-    if (window.silk) {
-      return;
-    }
-    // works the same as in global scope,
-    // but global-scope has the advantage that it is loaded at page-load,
-    // not with container
-    // setProvider(initSilk(options) as EthereumProvider);
   }, []);
+  // alternative initialization
+  // use when the silk wallet should not be available on every page
+  // useEffect(() => {
+  //   if (window.silk) {
+  //     return;
+  //   }
+  //   // works the same as in global scope,
+  //   // but global-scope has the advantage that it is loaded at page-load,
+  //   // not with container
+  //   initSilk(options);
+  // }, []);
+
+  // this app uses wagmi in pages & components and would throw bad errors
+  // but as we do not initialize a connector, all wagmi-hooks will will be in
+  // a 'not-connected' state
   return (
     <WagmiProvider config={createConfig(config)}>
       <Web3Context.Provider value={value}>{children}</Web3Context.Provider>

@@ -14,5 +14,5 @@ export function useCurrentChain() {
     }
     return config.chains.find((chain) => chain.id === chainId);
   }, [chainId, config]);
-  return currentChain;
+  return { chain: currentChain, chainId };
 }

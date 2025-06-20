@@ -63,8 +63,12 @@ export function connector(options?: InitSilkOptions) {
             provider.on('disconnect', this.onDisconnect);
           }
 
-          if (!provider.connected) {
+          if (!isReconnecting && !provider.connected) {
             try {
+              debug &&
+                console.log(
+                  'web3/adapter/silk-wagmi/connector::connect -> login',
+                );
               await provider.login();
             } catch (error) {
               debug && console.warn('Unable to login', error);
@@ -90,6 +94,11 @@ export function connector(options?: InitSilkOptions) {
           }
 
           const accounts = await this.getAccounts();
+          debug &&
+            console.log('web3/adapter/silk-wagmi/connector::connect ', {
+              accounts,
+              currentChainId,
+            });
 
           return { accounts, chainId: currentChainId };
         } catch (error) {

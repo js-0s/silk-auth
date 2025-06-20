@@ -66,6 +66,11 @@ export function NetworkCheck({ children }: NetworkCheckProps) {
       });
     }
   }, [authenticated, isReady, chainId, isCorrectNetwork, switchNetwork, toast]);
-
+  console.log('network-check::render', {
+    isReady,
+    authenticated,
+    chainId,
+    wc: wasWrongNetwork.current,
+  });
   return children;
 }

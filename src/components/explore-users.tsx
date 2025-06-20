@@ -10,7 +10,7 @@ import { WagmiStatus } from './wagmi-status';
 export function ExploreUsers() {
   const session = useSession();
   const { authenticated, isReady, address, login } = useAuth();
-  const currentChain = useCurrentChain();
+  const { chain: currentChain } = useCurrentChain();
 
   const connect = useCallback(() => {
     login();

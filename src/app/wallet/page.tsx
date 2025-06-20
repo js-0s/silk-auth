@@ -2,7 +2,6 @@
 import { useAuth } from '@/contexts';
 import { DashboardNotAuthenticated } from '@/components/dashboard/not-authenticated';
 import { PageDashboard } from '@/components/page/dashboard';
-import Link from 'next/link';
 
 export default function DashboardPage() {
   const { authenticated, address } = useAuth();
@@ -16,8 +15,7 @@ export default function DashboardPage() {
 
   return (
     <PageDashboard>
-      <p>Dashboard Content for authorized user ({address})</p>
-      <Link href="/wallet">Review Wallet</Link>
+      <p>Wallet Content for authorized user ({address})</p>
     </PageDashboard>
   );
 }

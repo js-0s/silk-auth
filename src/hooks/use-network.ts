@@ -4,15 +4,22 @@ import { useEffect, useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { chainConfig } from '@/lib/web3/config/chain';
 import { ProviderRpcError } from '@/lib/web3/types';
-import { useWeb3Context, useAuth } from '@/lib/web3';
+import {
+  useWeb3Context,
+  useAuth,
+  useCurrentChain,
+  getProvider,
+} from '@/lib/web3';
 
 export function useNetworkCheck() {
-  const { address, chainId, provider } = useWeb3Context();
+  const { address } = useWeb3Context();
+  const { chainId } = useCurrentChain();
   const { ready } = useAuth();
   const { toast } = useToast();
   const [isCorrectNetwork, setIsCorrectNetwork] = useState(false);
 
   const checkNetwork = useCallback(async () => {
+    const provider = getProvider();
     if (!provider) {
       return;
     }
@@ -25,9 +32,10 @@ export function useNetworkCheck() {
       setIsCorrectNetwork(false);
       return false;
     }
-  }, [provider, chainId]);
+  }, [chainId]);
 
   const switchNetwork = useCallback(async () => {
+    const provider = getProvider();
     if (!ready || !provider) {
       return;
     }
@@ -78,7 +86,7 @@ export function useNetworkCheck() {
         variant: 'destructive',
       });
     }
-  }, [provider, ready, toast, checkNetwork]);
+  }, [ready, toast, checkNetwork]);
 
   useEffect(() => {
     if (!address) {
@@ -95,6 +103,7 @@ export function useNetworkCheck() {
           setIsCorrectNetwork(false);
           return;
         }
+        const provider = getProvider();
         if (!provider) {
           console.log('use-network:effect: provider not available');
           setIsCorrectNetwork(false);
@@ -124,7 +133,7 @@ export function useNetworkCheck() {
 
     initializeNetwork();
     return () => cleanup?.();
-  }, [provider, address, checkNetwork]);
+  }, [address, checkNetwork]);
 
   return { isCorrectNetwork, switchNetwork };
 }

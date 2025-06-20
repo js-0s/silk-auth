@@ -6,8 +6,6 @@ import { chainConfig } from '@/lib/web3/config/chain';
 // Export chains for use in other files
 export { sepolia, celoAlfajores, celo, mainnet };
 import { injected, metaMask } from 'wagmi/connectors';
-// import { connector as silkConnector } from '@/lib/web3/adapter/silk/connector';
-// import { options as silkConnectorOptions } from '@/lib/web3/adapter/silk/options';
 
 // Add type declaration for wagmi config
 declare module 'wagmi' {
@@ -18,11 +16,7 @@ declare module 'wagmi' {
 
 export const config: CreateConfigParameters = {
   chains: [celoAlfajores, sepolia, celo, mainnet],
-  connectors: [
-    // silkConnector(silkConnectorOptions),
-    injected(),
-    metaMask(),
-  ],
+  connectors: [injected(), metaMask()],
   transports: {
     [celoAlfajores.id]: http(chainConfig.rpcUrl),
     [sepolia.id]: http(),

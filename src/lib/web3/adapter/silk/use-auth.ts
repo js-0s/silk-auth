@@ -14,20 +14,20 @@ import { ethers } from 'ethers';
 import { PROJECT_NAME } from '@/lib/constant';
 import { useToast } from '@/hooks/use-toast';
 import type { IWeb3UseAuthHook } from '@/lib/web3/types';
-import { useWeb3Context } from './context-provider';
+import { useWeb3Context, getProvider } from './context-provider';
 import { debugWeb3UseAuth as debug } from '@/lib/debug';
 
 async function fetchNonce() {
   try {
     return await getCsrfToken();
   } catch (error) {
-    console.error('Failure fetching nonce (next-auth csrf-token)');
+    console.error('Failure fetching nonce (next-auth csrf-token)', error);
   }
   return;
 }
 
 /**
- * Handles wagmi connect, signMessage, and logout using the Silk wallet.
+ * Handles login, signMessage, and logout using the Silk wallet.
  * @returns
  */
 export function useAuth(): IWeb3UseAuthHook {
@@ -35,7 +35,7 @@ export function useAuth(): IWeb3UseAuthHook {
     loading?: boolean;
     error?: Error;
   }>({});
-  const { address, checkWallet, provider } = useWeb3Context();
+  const { address, requestWallet } = useWeb3Context();
   const { toast } = useToast();
 
   const params = useSearchParams();
@@ -46,16 +46,17 @@ export function useAuth(): IWeb3UseAuthHook {
 
   const logout = useCallback(async () => {
     await nextAuthSignOut();
+    const provider = getProvider();
     if (provider) {
       await provider.logout();
     }
     setState({});
-  }, [provider]);
+  }, []);
 
   const signInToBackend = useCallback(async () => {
     try {
       // we cannot rely on state here as login() has altered window values
-      const { address, chainId } = await checkWallet();
+      const { address, chainId } = await requestWallet();
       debug &&
         console.log('web3/adapter/silk/use-auth:signInToBackend', {
           address,
@@ -67,7 +68,8 @@ export function useAuth(): IWeb3UseAuthHook {
           'web3/adapter/silk/use-auth:signInToBackend: missing address or chainId',
         );
       }
-      if (!provider || !window.silk) {
+      const provider = getProvider();
+      if (!provider) {
         throw new Error(
           'web3/adapter/silk/use-auth:signInToBackend: missing provider instance',
         );
@@ -96,7 +98,11 @@ export function useAuth(): IWeb3UseAuthHook {
 
       const preparedMessage = message.prepareMessage();
       // beware: provider might not be silk.window anymore, it mutates on provider.login
-      const signature = await window.silk.request({
+      const providerAfterLogin = getProvider();
+      if (!providerAfterLogin) {
+        throw new Error('Provider no longer available');
+      }
+      const signature = await providerAfterLogin.request({
         method: 'personal_sign',
         params: [
           ethers.hexlify(ethers.toUtf8Bytes(preparedMessage)),
@@ -140,7 +146,7 @@ export function useAuth(): IWeb3UseAuthHook {
         error: error as Error,
       }));
     }
-  }, [provider, callbackUrl, checkWallet]);
+  }, [callbackUrl, requestWallet]);
   const login = useCallback(async () => {
     setState((prevState) => ({
       ...prevState,
@@ -149,6 +155,7 @@ export function useAuth(): IWeb3UseAuthHook {
     }));
     debug && console.log('web3/adapter/silk/use-auth:login');
     try {
+      const provider = getProvider();
       if (!provider) {
         throw new Error('web3/adapter/silk/use-auth:login: Provider missing');
       }
@@ -178,9 +185,10 @@ export function useAuth(): IWeb3UseAuthHook {
         error: error as Error,
       }));
     }
-  }, [toast, signInToBackend, provider]);
+  }, [toast, signInToBackend]);
 
   const ready = useMemo(() => {
+    const provider = getProvider();
     debug &&
       console.log(
         'web3/adapter/silk/use-auth:rememo ready',
@@ -189,6 +197,7 @@ export function useAuth(): IWeb3UseAuthHook {
         state.loading,
         typeof state.loading,
       );
+
     if (!provider) {
       debug &&
         console.log(
@@ -204,7 +213,7 @@ export function useAuth(): IWeb3UseAuthHook {
       // silk has provided a address
       // via
       // - accountsChanged event
-      // - checkWallet = eth_requestAccounts
+      // - requestWallet = eth_requestAccounts
       return true;
     }
     debug &&
@@ -214,7 +223,7 @@ export function useAuth(): IWeb3UseAuthHook {
         typeof state.loading === 'undefined',
       );
     return state.loading === false || typeof state.loading === 'undefined';
-  }, [address, state.loading, provider]);
+  }, [address, state.loading]);
 
   debug && console.log('web3/adapter/silk/use-auth:render', ready, address);
   return {

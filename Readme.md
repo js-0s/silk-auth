@@ -14,13 +14,28 @@ the basic hello-world app including:
 - basic prisma db for user-storage and docker-compose to quickly spin up a
   dev-environment
 
+# implementation details
+
+In order for the silk-wallet to work there are multiple pieces at play:
+
+1. Every page needs to initialize silk.
+   Silk has the feature to 'auto-connect' (https://docs.wallet.human.tech/docs/guides/methods#auto-connect-functionality)
+   which assumes that `window.silk` is available. In order to have that, `initSilk(...)` has
+   to be called on every page navigation. In this implementation this is done in the
+   `context-provider.tsx`, this ensures it is only called once. The alternative approach is
+   using a `useEffect` which gives you the control to _not_ load it at certain pages.
+   See
+2. initialize takes time, there is no native way to get a ready state
+   when the context renders, it might be before window.silk is available. therefore a check-loop
+   is installed and a flag is exposed, rely on 'ready' in components as it checks more web3-values.
+
 # usage
 
 ```
 host> cp env.template .env
 host> cp env.local.template .env.local
 ... review the contents...
-host> docker compose run --rm shell
+host> docker compose run --rm app-shell
 sa-app> pnpm install
 sa-app> pnpx auth
 sa-app> pnpm dev:db
@@ -37,11 +52,15 @@ expose the app-modules to node_modules
 (useful for code-editors that willingly execute scripts in there)
 
 ```
-root@host > mount -o bind dev_modules/app/node_modules /node_modules
+root@host > mount -o bind dev_modules/app/node_modules ./node_modules
 ```
 
 of course the 'traditional' way is also possible, just
 `pnpm install && pnpm dev` on the host
+
+make sure to adapt the .env.local appropriately. the app will host on localhost:3000,
+but the example NEXTAUTH_URL is http://localhost:1010 (as remapped by docker-compose)
+You'll also have to set the DATABASE_URL to a locally running postgres
 
 # warning
 
